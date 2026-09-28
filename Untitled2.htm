@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warden Live Cloud Observation System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+    <div id="loader" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex justify-center items-center text-white text-lg font-semibold">
+        <div class="bg-white text-slate-800 px-6 py-4 rounded-xl shadow-lg flex items-center gap-3">
+            <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Syncing with Cloud... Please wait...
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <header class="bg-indigo-700 text-white rounded-xl p-6 shadow-md mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Tilak House Observation System</h1>
+                <p class="text-indigo-200 text-sm mt-1">Connected Live via Google Sheets (Multi-Device Sync)</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+                <button onclick="switchTab('importTab')" id="btn-importTab" class="bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 rounded-lg text-sm font-medium transition">1. Master Data</button>
+                <button onclick="switchTab('logTab')" id="btn-logTab" class="bg-indigo-800 hover:bg-indigo-500 px-3.5 py-2 rounded-lg text-sm font-medium transition">2. Daily Logger</button>
+                <button onclick="switchTab('searchTab')" id="btn-searchTab" class="bg-indigo-800 hover:bg-indigo-500 px-3.5 py-2 rounded-lg text-sm font-medium transition">3. Student History Search</button>
+                <button onclick="switchTab('recordsTab')" id="btn-recordsTab" class="bg-indigo-800 hover:bg-indigo-500 px-3.5 py-2 rounded-lg text-sm font-medium transition">4. All Cloud Logs</button>
+            </div>
+        </header>
+
+        <!-- TAB 1 -->
+        <div id="importTab" class="tab-content space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2">Upload Student Master List (Excel / CSV)</h2>
+                <p class="text-sm text-slate-500 mb-4">Upload your students list once (RollNo/Folio, Name, Class).</p>
+                <div class="flex items-center gap-4">
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                    <button onclick="handleFileUpload()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">Import Students</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-slate-900">Loaded Students (<span id="studentCount">0</span>)</h2>
+                    <button onclick="clearStudents()" class="text-red-600 hover:text-red-800 text-sm font-medium">Clear Students</button>
+                </div>
+                <div class="overflow-x-auto max-h-96">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 sticky top-0">
+                                <th class="p-3 border-b">Roll / Folio</th>
+                                <th class="p-3 border-b">Name</th>
+                                <th class="p-3 border-b">Class</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody">
+                            <tr><td colspan="3" class="p-4 text-center text-slate-400">No students loaded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2 -->
+        <div id="logTab" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 id="formTitle" class="text-lg font-semibold text-slate-900 mb-4">Record Daily Observations (Live Cloud Save)</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Search Student</label>
+                        <input type="text" id="studentSearch" oninput="filterStudentDropdown()" placeholder="Type name or roll..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Select Student</label>
+                        <select id="selectedStudentId" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="">-- Choose Student --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <form id="observationForm" onsubmit="saveObservationToCloud(event)" class="space-y-4 border-t pt-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Date</label>
+                            <input type="date" id="obsDate" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm"/>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Routine Session</label>
+                            <select id="obsSession" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                                <option value="1. Morning Wake-Up">1. Morning Wake-Up</option>
+                                <option value="2. Breakfast">2. Breakfast</option>
+                                <option value="3. Lunch">3. Lunch</option>
+                                <option value="4. Tiffin">4. Tiffin</option>
+                                <option value="5. Dinner">5. Dinner</option>
+                                <option value="6. Night Roll Call">6. Night Roll Call</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Attendance</label>
+                            <select id="obsAttendance" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                                <option value="Medical Room">Medical Room</option>
+                                <option value="Late / Excused">Late / Excused</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Health Status</label>
+                            <select id="obsHealth" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                                <option value="Fit & Fine">Fit & Fine</option>
+                                <option value="Mild Fever / Cold">Mild Fever / Cold</option>
+                                <option value="Injury / Sprain">Injury / Sprain</option>
+                                <option value="Stomach Issue">Stomach Issue</option>
+                                <option value="Other Medical Issue">Other Medical Issue</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Academic Performance / Focus</label>
+                            <select id="obsAcademic" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                                <option value="Good / Attentive">Good / Attentive</option>
+                                <option value="Average">Average</option>
+                                <option value="Dull / Lacking Focus">Dull / Lacking Focus</option>
+                                <option value="Incomplete Assignments">Incomplete Assignments</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Disciplinary Status</label>
+                            <select id="obsDiscipline" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm">
+                                <option value="Disciplined">Disciplined / Exemplary</option>
+                                <option value="Minor Misbehavior">Minor Misbehavior / Warning</option>
+                                <option value="Late to Roll Call">Late to Roll Call</option>
+                                <option value="Uniform / Grooming Issue">Uniform / Grooming Issue</option>
+                                <option value="Serious Violation">Serious Violation</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 uppercase mb-1">Additional Remarks / Notes</label>
+                        <textarea id="obsRemarks" rows="2" placeholder="Specific notes..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm"></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden bg-slate-300 hover:bg-slate-400 text-slate-800 px-5 py-2.5 rounded-lg text-sm font-medium transition">Cancel</button>
+                        <button type="submit" id="saveBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition shadow-sm">Save to Cloud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- TAB 3 -->
+        <div id="searchTab" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2">Student Individual Record History</h2>
+                <p class="text-sm text-slate-500 mb-4">Search student history fetched directly live from the cloud.</p>
+                <div class="flex gap-3 mb-6">
+                    <input type="text" id="historySearchInput" placeholder="Enter Name or Roll Number..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
+                    <button onclick="searchStudentHistory()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-sm font-medium transition whitespace-nowrap">Search Cloud</button>
+                </div>
+                <div id="historyResultContainer" class="space-y-4">
+                    <p class="text-sm text-slate-400 text-center py-8">Click search to load records from cloud.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4 -->
+        <div id="recordsTab" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900">All Cloud Records</h2>
+                    <p class="text-sm text-slate-500">Live data synced from Google Sheet.</p>
+                </div>
+                <div class="flex flex-wrap gap-3 w-full md:w-auto items-center">
+                    <input type="text" id="allLogsSearch" oninput="filterAllLogsTable()" placeholder="🔍 Search records..." class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-full md:w-64 focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
+                    <button onclick="exportFilteredPDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">📄 Export PDF</button>
+                    <button onclick="fetchCloudData()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">Refresh</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="overflow-x-auto max-h-[500px]">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 sticky top-0">
+                                <th class="p-3 border-b">Date</th>
+                                <th class="p-3 border-b">Session</th>
+                                <th class="p-3 border-b">Roll</th>
+                                <th class="p-3 border-b">Name</th>
+                                <th class="p-3 border-b">Class</th>
+                                <th class="p-3 border-b">Attendance</th>
+                                <th class="p-3 border-b">Health</th>
+                                <th class="p-3 border-b">Academic</th>
+                                <th class="p-3 border-b">Discipline</th>
+                                <th class="p-3 border-b">Remarks</th>
+                                <th class="p-3 border-b">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsTableBody">
+                            <tr><td colspan="11" class="p-4 text-center text-slate-400">Click "Refresh" to load records.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // YAHAN APNA APPS SCRIPT KA DEPLOYED WEB APP URL DALEIN (endsWith /exec):
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx4GaGDeDv9GcymKTmKT6K5NeaMcX-jPxDz3NQZcW11A3GDbni8ckO9pplvUHw_01nk/exec";
+
+        let students = JSON.parse(localStorage.getItem('warden_students')) || [];
+        let cloudObservations = [];
+        let editingIndex = null;
+
+        document.getElementById('obsDate').valueAsDate = new Date();
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            ['importTab', 'logTab', 'searchTab', 'recordsTab'].forEach(id => {
+                const btn = document.getElementById(`btn-${id}`);
+                if(btn) {
+                    if(id === tabId) {
+                        btn.classList.add('bg-indigo-600');
+                        btn.classList.remove('bg-indigo-800');
+                    } else {
+                        btn.classList.remove('bg-indigo-600');
+                        btn.classList.add('bg-indigo-800');
+                    }
+                }
+            });
+
+            if(tabId === 'logTab') populateStudentDropdown(students);
+            if(tabId === 'recordsTab') fetchCloudData();
+        }
+
+        function showLoader(show) {
+            document.getElementById('loader').classList.toggle('hidden', !show);
+        }
+
+        function handleFileUpload() {
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+            if (!file) { alert('Please select an Excel file.'); return; }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+
+                students = json.map((row, index) => {
+                    const keys = Object.keys(row);
+                    let rollVal = '', nameVal = '', classVal = '';
+                    keys.forEach(k => {
+                        const lk = k.toLowerCase().trim();
+                        if ((lk.includes('roll') || lk.includes('folio') || lk.includes('id') || lk.includes('s.n')) && !rollVal) rollVal = row[k];
+                        if ((lk.includes('name') || lk.includes('student')) && !nameVal) nameVal = row[k];
+                        if ((lk.includes('class') || lk.includes('grade') || lk.includes('standard')) && !classVal) classVal = row[k];
+                    });
+                    if (!rollVal) rollVal = row[keys[0]] || '-';
+                    if (!nameVal) nameVal = row[keys[1]] || 'Unknown';
+                    if (!classVal) classVal = row[keys[2]] || '-';
+                    return { id: index + 1, rollNo: rollVal, name: nameVal, class: classVal };
+                });
+
+                localStorage.setItem('warden_students', JSON.stringify(students));
+                renderStudentTable();
+                alert(`Successfully loaded ${students.length} students!`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderStudentTable() {
+            const tbody = document.getElementById('studentTableBody');
+            document.getElementById('studentCount').innerText = students.length;
+            if (students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">No students loaded.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = students.map(s => `
+                <tr class="border-b hover:bg-slate-50">
+                    <td class="p-3 font-medium">${s.rollNo}</td>
+                    <td class="p-3">${s.name}</td>
+                    <td class="p-3">${s.class}</td>
+                </tr>
+            `).join('');
+        }
+
+        function clearStudents() {
+            if(confirm('Clear loaded students?')) {
+                students = [];
+                localStorage.removeItem('warden_students');
+                renderStudentTable();
+            }
+        }
+
+        function populateStudentDropdown(list) {
+            const select = document.getElementById('selectedStudentId');
+            if (list.length === 0) {
+                select.innerHTML = `<option value="">-- Please upload student master list in Tab 1 first --</option>`;
+                return;
+            }
+            select.innerHTML = `<option value="">-- Choose Student --</option>` + list.map(s => `
+                <option value="${s.rollNo}">Roll/Folio: ${s.rollNo} | ${s.name} (${s.class})</option>
+            `).join('');
+        }
+
+        function filterStudentDropdown() {
+            const query = document.getElementById('studentSearch').value.toLowerCase();
+            const filtered = students.filter(s =>
+                String(s.rollNo).toLowerCase().includes(query) ||
+                s.name.toLowerCase().includes(query) ||
+                String(s.class).toLowerCase().includes(query)
+            );
+            populateStudentDropdown(filtered);
+        }
+
+        function saveObservationToCloud(e) {
+            e.preventDefault();
+            const rollNo = document.getElementById('selectedStudentId').value;
+            if(!rollNo) { alert('Please select a student.'); return; }
+
+            const student = students.find(s => String(s.rollNo) === String(rollNo)) || {
+                rollNo: rollNo,
+                name: document.getElementById('selectedStudentId').selectedOptions[0].text.split('|')[1]?.trim() || 'Unknown',
+                class: '-'
+            };
+
+            const payload = {
+                action: editingIndex !== null ? "update" : "insert",
+                rowIndex: editingIndex,
+                date: document.getElementById('obsDate').value,
+                session: document.getElementById('obsSession').value,
+                rollNo: String(student.rollNo),
+                name: String(student.name),
+                className: String(student.class || '-'),
+                attendance: document.getElementById('obsAttendance').value,
+                health: document.getElementById('obsHealth').value,
+                academic: document.getElementById('obsAcademic').value,
+                discipline: document.getElementById('obsDiscipline').value,
+                remarks: document.getElementById('obsRemarks').value || '-'
+            };
+
+            showLoader(true);
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                showLoader(false);
+                alert(editingIndex !== null ? 'Record updated successfully!' : 'Observation saved successfully to Cloud!');
+                resetForm();
+                fetchCloudData();
+            })
+            .catch(err => {
+                showLoader(false);
+                alert('Error connecting to cloud.');
+                console.error(err);
+            });
+        }
+
+        function editRecord(index, date, session, rollNo, attendance, health, academic, discipline, remarks) {
+            switchTab('logTab');
+            document.getElementById('formTitle').innerText = "Edit Cloud Record";
+            document.getElementById('saveBtn').innerText = "Update Record";
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+            document.getElementById('obsDate').value = date;
+            document.getElementById('obsSession').value = session;
+            document.getElementById('obsAttendance').value = attendance;
+            document.getElementById('obsHealth').value = health;
+            document.getElementById('obsAcademic').value = academic;
+            document.getElementById('obsDiscipline').value = discipline;
+            document.getElementById('obsRemarks').value = remarks === '-' ? '' : remarks;
+
+            populateStudentDropdown(students);
+            document.getElementById('selectedStudentId').value = rollNo;
+            editingIndex = index;
+        }
+
+        function resetForm() {
+            document.getElementById('observationForm').reset();
+            document.getElementById('obsDate').valueAsDate = new Date();
+            document.getElementById('formTitle').innerText = "Record Daily Observations (Live Cloud Save)";
+            document.getElementById('saveBtn').innerText = "Save to Cloud";
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+            editingIndex = null;
+        }
+
+        function fetchCloudData() {
+            showLoader(true);
+            fetch(WEB_APP_URL)
+            .then(res => res.json())
+            .then(data => {
+                showLoader(false);
+                cloudObservations = data;
+                renderRecordsTable(data);
+            })
+            .catch(err => {
+                showLoader(false);
+                alert('Failed to fetch cloud records.');
+                console.error(err);
+            });
+        }
+
+        function renderRecordsTable(data) {
+            const tbody = document.getElementById('recordsTableBody');
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400">No records found on cloud.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = data.slice().reverse().map(o => `
+                <tr class="border-b hover:bg-slate-50 text-xs">
+                    <td class="p-3">${o.date}</td>
+                    <td class="p-3 font-semibold text-indigo-600">${o.session}</td>
+                    <td class="p-3">${o.rollNo}</td>
+                    <td class="p-3 font-medium">${o.name}</td>
+                    <td class="p-3">${o.class}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-100">${o.attendance}</span></td>
+                    <td class="p-3">${o.health}</td>
+                    <td class="p-3">${o.academic}</td>
+                    <td class="p-3">${o.discipline}</td>
+                    <td class="p-3 text-slate-500">${o.remarks}</td>
+                    <td class="p-3">
+                        <button onclick="editRecord(${o.rowIndex}, '${o.date}', '${o.session}', '${o.rollNo}', '${o.attendance}', '${o.health}', '${o.academic}', '${o.discipline}', \`${o.remarks}\`)" class="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded text-xs font-medium">Edit</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterAllLogsTable() {
+            const query = document.getElementById('allLogsSearch').value.toLowerCase();
+            const filtered = cloudObservations.filter(o =>
+                String(o.name).toLowerCase().includes(query) ||
+                String(o.rollNo).toLowerCase().includes(query) ||
+                String(o.class).toLowerCase().includes(query) ||
+                String(o.date).toLowerCase().includes(query) ||
+                String(o.session).toLowerCase().includes(query)
+            );
+            renderRecordsTable(filtered);
+        }
+
+        function exportFilteredPDF() {
+            const query = document.getElementById('allLogsSearch').value.trim();
+            const filtered = cloudObservations.filter(o => {
+                if(!query) return true;
+                const q = query.toLowerCase();
+                return String(o.name).toLowerCase().includes(q) ||
+                       String(o.rollNo).toLowerCase().includes(q) ||
+                       String(o.class).toLowerCase().includes(q) ||
+                       String(o.date).toLowerCase().includes(q);
+            });
+
+            if(filtered.length === 0) {
+                alert('No records available to export.');
+                return;
+            }
+
+            let printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>House Master Student Observation Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                        h2 { text-align: center; margin-bottom: 5px; color: #4f46e5; }
+                        p { text-align: center; font-size: 12px; color: #666; margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+                        th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+                        th { background-color: #f8fafc; color: #1e293b; }
+                    </style>
+                </head>
+                <body>
+                    <h2>House Master Observation Report</h2>
+                    <p>${query ? 'Filtered Search Query: ' + query : 'Complete Cloud Records Report'} | Generated on: ${new Date().toLocaleDateString()}</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Session</th>
+                                <th>Roll / Folio</th>
+                                <th>Name</th>
+                                <th>Class</th>
+                                <th>Attendance</th>
+                                <th>Health</th>
+                                <th>Academic</th>
+                                <th>Discipline</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filtered.map(o => `
+                                <tr>
+                                    <td>${o.date}</td>
+                                    <td>${o.session}</td>
+                                    <td>${o.rollNo}</td>
+                                    <td>${o.name}</td>
+                                    <td>${o.class}</td>
+                                    <td>${o.attendance}</td>
+                                    <td>${o.health}</td>
+                                    <td>${o.academic}</td>
+                                    <td>${o.discipline}</td>
+                                    <td>${o.remarks}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <script>
+                        window.onload = function() { window.print(); }
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        function searchStudentHistory() {
+            const query = document.getElementById('historySearchInput').value.trim().toLowerCase();
+            const container = document.getElementById('historyResultContainer');
+
+            if(!query) { container.innerHTML = `<p class="text-sm text-red-500 text-center py-4">Please type a name or roll number.</p>`; return; }
+
+            showLoader(true);
+            fetch(WEB_APP_URL)
+            .then(res => res.json())
+            .then(data => {
+                showLoader(false);
+                const matched = data.filter(o =>
+                    String(o.name).toLowerCase().includes(query) ||
+                    String(o.rollNo).toLowerCase().includes(query) ||
+                    String(o.class).toLowerCase().includes(query)
+                );
+
+                if(matched.length === 0) {
+                    container.innerHTML = `<div class="p-6 bg-slate-50 rounded-xl text-center text-slate-500">No history found for "<b>${query}</b>".</div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-xl mb-4 flex justify-between items-center">
+                        <h3 class="text-base font-bold text-indigo-900">Found ${matched.length} cloud record(s) for "${query}"</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm bg-white border rounded-xl shadow-sm">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700">
+                                    <th class="p-3 border-b">Date</th>
+                                    <th class="p-3 border-b">Session</th>
+                                    <th class="p-3 border-b">Roll</th>
+                                    <th class="p-3 border-b">Name</th>
+                                    <th class="p-3 border-b">Class</th>
+                                    <th class="p-3 border-b">Attendance</th>
+                                    <th class="p-3 border-b">Health</th>
+                                    <th class="p-3 border-b">Academic</th>
+                                    <th class="p-3 border-b">Discipline</th>
+                                    <th class="p-3 border-b">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${matched.map(o => `
+                                    <tr class="border-b hover:bg-slate-50 text-xs">
+                                        <td class="p-3">${o.date}</td>
+                                        <td class="p-3 font-semibold text-indigo-600">${o.session}</td>
+                                        <td class="p-3">${o.rollNo}</td>
+                                        <td class="p-3 font-medium">${o.name}</td>
+                                        <td class="p-3">${o.class}</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-100">${o.attendance}</span></td>
+                                        <td class="p-3">${o.health}</td>
+                                        <td class="p-3">${o.academic}</td>
+                                        <td class="p-3">${o.discipline}</td>
+                                        <td class="p-3 text-slate-500">${o.remarks}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            })
+            .catch(err => {
+                showLoader(false);
+                alert('Error fetching search history.');
+            });
+        }
+
+        renderStudentTable();
+    </script>
+</body>
+</html>
